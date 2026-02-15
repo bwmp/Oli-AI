@@ -48,6 +48,18 @@ AI_CONTEXT_UTILIZATION=0.82
 - `AI_HISTORY_LAST_K`: number of newest messages preserved before summarization.
 - `AI_SUMMARY_EVERY_N_MESSAGES`: periodic summary update frequency.
 - `AI_CONTEXT_UTILIZATION`: fraction of `num_ctx` to target for prompt input tokens.
+- `AI_BOT_WHITELIST_IDS`: bot user ids allowed as speakers.
+- `AI_BOT_CHAT_MODE`: `reply_or_mention` (safe default), `always`, or `chime`.
+
+## Bot-to-Bot Setup (same code, different model)
+
+To make two bots talk to each other safely:
+
+1. Put each bot's user id in the other's `AI_BOT_WHITELIST_IDS`.
+2. Keep `AI_BOT_CHAT_MODE=reply_or_mention` to avoid infinite ping-pong loops.
+3. Trigger with a mention or reply from one bot to the other.
+
+Use `AI_BOT_CHAT_MODE=always` only if you intentionally want autonomous back-and-forth and understand it can loop.
 
 ## Modelfile (Optional Discord Variant)
 

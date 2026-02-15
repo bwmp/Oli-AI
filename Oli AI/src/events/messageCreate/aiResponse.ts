@@ -13,16 +13,27 @@ export default async (client: Client, message: Message) => {
 	const whitelistedBotIds = (process.env.AI_BOT_WHITELIST_IDS || '')
 		.split(',')
 		.map(id => id.trim())
-		.filter(Boolean);
+		.filter(Boolean)
+		.filter(id => id !== client.user?.id);
 	const isWhitelistedBot = message.author.bot && whitelistedBotIds.includes(message.author.id);
 	if (message.author.bot && !isWhitelistedBot) return;
 	const bridged = isWhitelistedBot ? parseBridgedMessage(message.content) : null;
-	if (isWhitelistedBot && !bridged) return;
+	const botToBotMode = (process.env.AI_BOT_CHAT_MODE || 'reply_or_mention').trim().toLowerCase();
 
 	// Check if we should respond in this channel
 	const allowedChannels = process.env.AI_CHANNEL_IDS?.split(',').map(id => id.trim()).filter(Boolean);
 	if (allowedChannels && allowedChannels.length > 0 && !allowedChannels.includes(message.channelId)) return;
 	const configuredBotName = (process.env.AI_NAME || client.user?.displayName || 'Pookie').trim();
+
+	// If a bridged message is attributed to this bot's own name, ignore it to avoid self-loops.
+	if (bridged) {
+		const selfNames = new Set([
+			configuredBotName.toLowerCase(),
+			(client.user?.displayName || '').toLowerCase(),
+			(client.user?.username || '').toLowerCase(),
+		].filter(Boolean));
+		if (selfNames.has(bridged.username.toLowerCase())) return;
+	}
 
 	const botNameLower = configuredBotName.toLowerCase();
 	const isMentioned = message.mentions.has(client.user!.id);
@@ -41,9 +52,13 @@ export default async (client: Client, message: Message) => {
 	}
 
 	// Always respond to mentions and replies to the bot
-	const directlyAddressed = isMentioned || isReplyToBot || bridgedMentionsBot;
+	const forceBotToBotReply = isWhitelistedBot && botToBotMode === 'always';
+	const directlyAddressed = isMentioned || isReplyToBot || bridgedMentionsBot || forceBotToBotReply;
 
 	if (!directlyAddressed) {
+		// For whitelisted bot accounts, default to only reply/mention mode to avoid bot loops.
+		if (isWhitelistedBot && botToBotMode !== 'chime') return;
+
 		// Random chance to chime in (default 15%)
 		const chimeChance = parseFloat(process.env.AI_CHIME_CHANCE || '0.15');
 		const roll = Math.random();
